@@ -1,5 +1,13 @@
 # Planning
-## Noise Reduction
+## Tentative Schedule:
+|Stage|Date |
+|-----|-----|
+| Noise Subtraction | June 10|
+| Exploratory Unsupervised Clustering | tbd |
+| Classical/AI+ML Classification | tbd |
+| Hardware Integration (Spatial Data?) | tbd |
+
+## Noise Reduction: The goal of this subproject is to be totally robust--not just cricket noise
 
 ### Alec:
 spectral subtraction, wavelet denoising, and non-negative matrix factorization (NMF) 
