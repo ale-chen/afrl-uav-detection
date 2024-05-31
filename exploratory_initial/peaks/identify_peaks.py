@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wavfile
-from scipy.signal import cwt, find_peaks
+from scipy.signal import cwt, find_peaks, morlet
 from scipy.stats import norm
 import os
 import pandas as pd
@@ -9,14 +9,16 @@ import pandas as pd
 def wavelet_peak_detection(signal, fs):
     # Apply continuous wavelet transform (CWT)
     scales = np.arange(1, 101)
-    coefs, freqs = cwt(signal, scales, 'morl', 1/fs)
+    coefs = np.zeros((len(scales), len(signal)))
+    for i, scale in enumerate(scales):
+        coefs[i, :] = np.real(cwt(signal, morlet, widths=[scale])[0])  # Use np.real() to discard the imaginary part
     
     # Identify peaks in the wavelet coefficients
     peaks = find_peaks(coefs.max(axis=0))[0]
     peak_times = peaks / fs
-    peak_freqs = freqs[peaks]
+    peak_freqs = scales[np.argmax(coefs[:, peaks], axis=0)] / fs
     
-    return peak_times, peak_freqs
+    return peak_times, peak_freqs, coefs, scales
 
 def bayesian_peak_detection(signal, fs):
     # Estimate noise distribution parameters
@@ -29,13 +31,14 @@ def bayesian_peak_detection(signal, fs):
     # Compute the posterior probability of a UAV signal being present
     prior_uav = 0.1
     posterior_uav = prior_uav * likelihood_uav / (prior_uav * likelihood_uav + (1-prior_uav) * likelihood_no_uav)
+    posterior_uav[np.isnan(posterior_uav)] = 0  # Replace NaN values with 0
     
     # Identify peaks in the posterior probability
     peaks = find_peaks(posterior_uav, height=0.5)[0]
     peak_times = peaks / fs
     peak_freqs = np.full(len(peaks), np.nan)
     
-    return peak_times, peak_freqs
+    return peak_times, peak_freqs, posterior_uav
 
 def matched_filtering(signal, fs, template):
     # Normalize the template
@@ -49,10 +52,12 @@ def matched_filtering(signal, fs, template):
     peak_times = peaks / fs
     peak_freqs = np.full(len(peaks), np.nan)
     
-    return peak_times, peak_freqs
+    return peak_times, peak_freqs, corr
 
 input_dir = '/Users/alecchen/Desktop/Documents/Professional/AFRL/distasio/sA1r01/p02'
 output_dir = './processed'
+
+os.makedirs(output_dir, exist_ok=True)
 
 for root, dirs, files in os.walk(input_dir):
     for file in files:
@@ -62,7 +67,6 @@ for root, dirs, files in os.walk(input_dir):
             os.makedirs(output_subdir, exist_ok=True)
             
             fs, data = wavfile.read(input_file_path)
-            fs = int(fs)  # Convert fs to an integer
             segment_length = 30 * fs
             segments = [data[i:i+segment_length] for i in range(0, len(data), segment_length)]
             
@@ -70,14 +74,15 @@ for root, dirs, files in os.walk(input_dir):
                 time = np.arange(len(segment)) / fs
                 
                 # Wavelet transform-based peak detection
-                wavelet_peak_times, wavelet_peak_freqs = wavelet_peak_detection(segment, fs)
+                wavelet_peak_times, wavelet_peak_freqs, coefs, scales = wavelet_peak_detection(segment, fs)
                 
                 # Bayesian peak detection
-                bayesian_peak_times, bayesian_peak_freqs = bayesian_peak_detection(segment, fs)
+                bayesian_peak_times, bayesian_peak_freqs, posterior_uav = bayesian_peak_detection(segment, fs)
                 
                 # Matched filtering
-                template = np.sin(2*np.pi*1000*np.arange(1000)/fs) * np.exp(-np.arange(1000)/100)
-                matched_filter_peak_times, matched_filter_peak_freqs = matched_filtering(segment, fs, template)
+                template = np.sin(2*np.pi*1000*time) * np.exp(-time/0.1)
+                matched_filter_peak_times, matched_filter_peak_freqs, corr = matched_filtering(segment, fs, template)
+                    
                 
                 # Create dataframes with identified results
                 wavelet_peaks_df = pd.DataFrame({'Time (s)': wavelet_peak_times, 'Frequency (Hz)': wavelet_peak_freqs})
@@ -103,23 +108,28 @@ for root, dirs, files in os.walk(input_dir):
                 axes[0, 1].set_ylabel('Magnitude')
                 axes[0, 1].set_title('Frequency Spectrum')
                 
-                axes[1, 0].plot(time, coefs.max(axis=0))
-                axes[1, 0].plot(wavelet_peak_times, coefs.max(axis=0)[np.round(wavelet_peak_times*fs).astype(int)], 'ro')
+                axes[1, 0].imshow(coefs, aspect='auto', cmap='jet', extent=[time[0], time[-1], scales[0], scales[-1]])
                 axes[1, 0].set_xlabel('Time (s)')
-                axes[1, 0].set_ylabel('Wavelet Coefficient')
-                axes[1, 0].set_title('Wavelet Transform-based Peak Detection')
+                axes[1, 0].set_ylabel('Scale')
+                axes[1, 0].set_title('Wavelet Transform')
+                axes[1, 0].scatter(wavelet_peak_times, wavelet_peak_freqs, color='r', marker='x', s=50, label='Peaks')
+                axes[1, 0].legend()
                 
                 axes[1, 1].plot(time, posterior_uav)
-                axes[1, 1].plot(bayesian_peak_times, posterior_uav[np.round(bayesian_peak_times*fs).astype(int)], 'ro')
+                axes[1, 1].scatter(bayesian_peak_times, posterior_uav[np.round(bayesian_peak_times*fs).astype(int)], color='r', marker='x', s=50, label='Peaks')
                 axes[1, 1].set_xlabel('Time (s)')
                 axes[1, 1].set_ylabel('Posterior Probability')
                 axes[1, 1].set_title('Bayesian Peak Detection')
+                axes[1, 1].legend()
                 
-                axes[2, 0].plot(time, np.correlate(segment, template, mode='same'))
-                axes[2, 0].plot(matched_filter_peak_times, np.correlate(segment, template, mode='same')[np.round(matched_filter_peak_times*fs).astype(int)], 'ro')
+                axes[2, 0].plot(time, corr)
+                axes[2, 0].scatter(matched_filter_peak_times, corr[np.round(matched_filter_peak_times*fs).astype(int)], color='r', marker='x', s=50, label='Peaks')
                 axes[2, 0].set_xlabel('Time (s)')
                 axes[2, 0].set_ylabel('Correlation')
                 axes[2, 0].set_title('Matched Filtering')
+                axes[2, 0].legend()
+                            
+                axes[2, 1].axis('off')
                 
                 fig.tight_layout(rect=[0, 0.03, 1, 0.95])
                 fig.savefig(os.path.join(output_subdir, f'segment_{i+1}_results.png'))
