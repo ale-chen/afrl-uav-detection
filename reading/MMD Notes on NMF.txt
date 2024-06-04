@@ -1,0 +1,70 @@
+MMD Notes on NMF
+==========================================================================
+from 
+(1) "Single-channel audio source separation with NMF:divergences, constraints and algorithms:
+Cédric Févotte, Emmanuel Vincent, Alexey Ozerov
+
+Abstract
+Spectral decomposition by nonnegative matrix factorisation (NMF) has become
+state-of-the-art practice in many audio signal processing tasks, such as source separation, enhancement or transcription. This chapter reviews the fundamentals of
+NMF-based audio decomposition, in unsupervised and informed settings. We formulate NMF as an optimisation problem and discuss the choice of the measure of
+fit. We present the standard majorisation-minimisation strategy to address optimisation for NMF with common β-divergence, a family of measures of fit that takes
+the quadratic cost, the generalised Kullback-Leibler divergence and the ItakuraSaito divergence as special cases. We discuss the reconstruction of time-domain
+components from the spectral factorisation and present common variants of NMFbased spectral decomposition: supervised and informed settings, regularised versions, temporal models.
+
+====================================================================================================================================================
+(2) NMF with the least-squares objective is equivalent to a relaxed form of K-means clustering: the matrix factor W contains cluster centroids and H contains cluster membership indicators. This provides a theoretical foundation for using NMF for data clustering.
+
+What is the difference between NMF and PCA?
+Unlike PCA, NMF does not explicitly optimize for the axes of variability. Instead, it learns the key components or features of the data by constraining all factors to be non-negative. This leads to a parts-based representation of the data, which can be more interpretable than PCA.
+====================================================================================================================
+(3) Discussion in https://www.researchgate.net/post/Difference_between_PCA_and_NMF#:~:text=Unlike%20PCA%2C%20NMF%20does%20not,be%20more%20interpretable%20than%20PCA.
+
+Difference between PCA and NMF?
+I want to understand the difference between PCA (principal component analysis) and NMF (non-negative matrix factorization) in terms of explaining variability.
+When we apply PCA into high-dimensinal data (suppose 100) then the largest PC explain the highest axis of variability in the data, similarily second largest PC explain the second highest axis of variabiity in the data and so on. So if we keep 10 or 20 PC in then final analysis then it certainly caputure the most variability of the data.
+Now in the case of NMF when we increase the number of factors then what the factors basically learn from the data. Does it learn the axis of variability or it learn the key components on the data?
+When we should say in the case of NMF that these number of factors loading has learnt almost all the axes of variability in the data.
+Thanks.
+.......................................................................................
+Wadie Abu Dahoud
+The BARUCH PADEH Medical Center, Poriya
+Dear Ankit,
+PCA and NMF are both dimensionality reduction techniques, but they work differently and have different assumptions about the data.
+PCA aims to find orthogonal linear combinations of the original features that capture the maximum variance in the data. These linear combinations are called principal components. The first principal component captures the largest variance, the second one captures the next largest variance, and so on. By selecting the top k principal components, you can reduce the dimensionality of the data while still preserving most of the variability.
+
+NMF, on the other hand, is a factorization method that decomposes a non-negative data matrix into two non-negative matrices: the basis matrix (W) and the coefficient matrix (H). The goal of NMF is to find a lower-dimensional representation of the data by approximating the original data matrix as the product of the two smaller matrices. NMF is particularly useful for data that has a natural additive structure, such as images or documents with word counts.
+
+Unlike PCA, NMF does not explicitly optimize for the axes of variability. Instead, it learns the key components or features of the data by constraining all factors to be non-negative. This leads to a parts-based representation of the data, which can be more interpretable than PCA.
+
+Determining the optimal number of factors in NMF can be more challenging than in PCA. One common approach is to use cross-validation or other model selection techniques to find the number of factors that best balances between fitting the data well and minimizing complexity.
+Another approach is to use a pre-specified number of factors based on prior knowledge or to use methods such as the Bayesian Information Criterion (BIC) or the Akaike Information Criterion (AIC) to determine the optimal number of factors.
+Kind regards,
+Wadie
+*****************************
+Poria Illit
+https://en.wikipedia.org › wiki › Poria_Illit
+Poriya from en.wikipedia.org
+.................................................................
+
+Dear Wadie,
+Thanks for your very detailed explanation. So NMF is particularly useful for the data that has a natural additive structure and it learns the key components or features of the data.
+Is there any way to know that particular NMF factor most important? Can we know the rank of NMF factors based on the key components?
+Thanks.
+Cite
+Wadie Abu Dahoud
+The BARUCH PADEH Medical Center, Poriya
+Yes, it is possible to assess the importance of individual NMF factors and determine their rank based on the key components they represent. To do this, you can use a combination of quantitative and qualitative methods:
+Reconstruction error: One common approach is to evaluate the reconstruction error of the NMF model as you vary the number of factors (rank). By plotting the reconstruction error against the number of factors, you can identify the "elbow point," where adding more factors doesn't significantly reduce the error. This can help you determine the optimal rank for your NMF model (can only be calculated manually in R using NMF library).
+Explained variance: Another quantitative method is to compute the explained variance for each factor. The explained variance measures the proportion of the total variance in the data that is accounted for by a given factor. Factors with higher explained variance values can be considered more important. You can rank the factors by their explained variance values to determine their relative importance (also manually calculated).
+Interpretability: A more qualitative approach involves ranking the factors that correspond to more clear and meaningful patterns as more important.
+Stability: Another measure is the stability of the factors across different runs or initializations of the NMF algorithm. Factors that consistently appear in different runs can be considered more important, as they represent robust features of the data.
+Contribution: If you're using NMF factors for some specific task, such as regression, you can measure the importance of each factor based on its contribution to the performance of the model. Factors that significantly improve the model's performance can be considered more important.
+You might need to combine several of these methods to obtain a comprehensive understanding of the importance of each factor.
+Viel Gluck,
+Wadie
+
+...........................................................................................................
+Poria Illit is a community settlement in northern Israel. Located near the southwestern shore of the Sea of Galilee, it falls under the jurisdiction of Emek ...
+*********************************************************************************************
+====================================================================================================================================================
