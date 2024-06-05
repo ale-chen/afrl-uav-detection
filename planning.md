@@ -44,6 +44,7 @@ https://dev.to/highcenburg/separate-vocals-from-a-track-using-python-4lb5
 The last approach I will mention for now is this one which utilizes librosa decomposition functions, the primary use case is to separate from vocals from music in songs. In an ideal world, the UAV audio would be the vocals and the noise/crickets would be the background/music.
 
 **Griff**: gaussian distribution for volume data augmentation: (decide whether or not 'no drone' is a class): cut up into 5 second chunks, drop or gather into separate any snippets without drone noises.
+
 **Alec**: NMF selection stuff
 
 ## Clustering
