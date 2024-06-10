@@ -1,6 +1,7 @@
 import librosa
 import numpy as np
 from sklearn.decomposition import NMF
+import os
 
 
 class AudioDenoiser:
@@ -76,6 +77,20 @@ class AudioDenoiser:
             self.noise_type_matrices.append(noise_type_matrix)
 
         return self.noise_type_matrices
+    
+    def save_noise_type_matrices(self, output_dir):
+        """
+        Save the generalized noise type matrices to the specified output directory.
+
+        Args:
+            output_dir (str): Directory to save the generalized noise type matrices.
+        """
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        for i, noise_type_matrix in enumerate(self.noise_type_matrices):
+            output_path = os.path.join(output_dir, f"noise_type_{i+1}.npy")
+            np.save(output_path, noise_type_matrix)
 
 
 # Example Usage
@@ -88,3 +103,5 @@ denoiser = AudioDenoiser()
 noise_type_matrices = denoiser.generalize_noise_types([noise_files_1, noise_files_2, noise_files_3])
 
 print(noise_type_matrices)
+
+denoiser.save_noise_type_matrices('noise_matrices')
