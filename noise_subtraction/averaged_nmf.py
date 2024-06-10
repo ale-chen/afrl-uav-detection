@@ -69,5 +69,5 @@ if __name__ == '__main__':
     
     denoiser = AudioDenoiser(noise_files=[noise_files_1, noise_files_2, noise_files_3], n_components=10)
     denoiser.train()
-    denoiser.denoise(audio_file, output_file
+    denoiser.denoise(audio_file, output_file)
 
