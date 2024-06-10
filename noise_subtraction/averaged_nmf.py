@@ -2,72 +2,89 @@ import librosa
 import numpy as np
 from sklearn.decomposition import NMF
 
+
 class AudioDenoiser:
-    def __init__(self, noise_files, n_components=10, n_fft=1024, hop_length=512):
-        self.noise_files = noise_files
+    """
+    A class for audio denoising using Non-Negative Matrix Factorization (NMF).
+
+    Attributes:
+        n_components (int): Number of components for NMF decomposition.
+        n_fft (int): FFT window size.
+        hop_length (int): Hop length for STFT.
+        noise_files_list (list): List of noise file paths.
+        noise_type_matrices (list): List of generalized noise type matrices.
+    """
+
+    def __init__(self, n_components=10, n_fft=1024, hop_length=512):
+        """
+        Initialize the AudioDenoiser.
+
+        Args:
+            n_components (int, optional): Number of components for NMF decomposition. Defaults to 10.
+            n_fft (int, optional): FFT window size. Defaults to 1024.
+            hop_length (int, optional): Hop length for STFT. Defaults to 512.
+        """
         self.n_components = n_components
         self.n_fft = n_fft
         self.hop_length = hop_length
-        self.basis_matrices = []
-        self.nmf_models = []
+        self.noise_files_list = []
+        self.noise_type_matrices = []
 
-    def preprocess_audio(self, file_path):
-        audio, sr = librosa.load(file_path)
-        spectrogram = librosa.stft(audio, n_fft=self.n_fft, hop_length=self.hop_length)
-        magnitude = np.abs(spectrogram)
-        return magnitude
+    def compute_basis_matrix(self, audio_file, max_iter = 1200):
+        """
+        Compute the basis and activation matrices for an audio file using NMF.
 
-    def train_nmf(self, spectrogram):
-        nmf = NMF(n_components=self.n_components, random_state=0, max_iter=1000)
-        basis_matrix = nmf.fit_transform(spectrogram)
-        return basis_matrix, nmf.components_
+        Args:
+            audio_file (str): Path to the audio file.
+            max_iter (int, optional): Maximum number of iterations for NMF. Defaults to 1200.
 
-    def train(self):
-        for noise_files in self.noise_files:
-            basis_matrices = []
-            for file in noise_files:
-                noise_spectrogram = self.preprocess_audio(file)
-                basis_matrix, _ = self.train_nmf(noise_spectrogram)
-                basis_matrices.append(basis_matrix)
-            
-            averaged_basis_matrix = np.mean(basis_matrices, axis=0)
-            self.basis_matrices.append(averaged_basis_matrix)
 
-            nmf = NMF(n_components=self.n_components, init='custom', solver='cd', max_iter=1000)
-            nmf.components_ = averaged_basis_matrix.T
-            self.nmf_models.append(nmf)
+        Returns:
+            tuple: A tuple containing the basis matrix (W) and the activation matrix (H).
+        """
+        y, sr = librosa.load(audio_file)
+        S = librosa.stft(y, n_fft=self.n_fft, hop_length=self.hop_length)
+        S_mag, _ = librosa.magphase(S)
 
-    def denoise_audio(self, spectrogram):
-        denoised_spectrogram = spectrogram.copy()
-        for nmf, basis_matrix in zip(self.nmf_models, self.basis_matrices):
-            activation_matrix = nmf.transform(denoised_spectrogram.T)
-            noise_spectrogram = np.dot(basis_matrix, activation_matrix).T
-            noise_spectrogram = librosa.util.fix_length(noise_spectrogram, denoised_spectrogram.shape[1], axis=1)
-            denoised_spectrogram -= noise_spectrogram
-        return denoised_spectrogram
+        nmf = NMF(n_components=self.n_components, max_iter = max_iter, random_state=0)
+        W = nmf.fit_transform(S_mag)
+        H = nmf.components_
 
-    def reconstruct_audio(self, denoised_spectrogram, phase):
-        complex_spectrogram = denoised_spectrogram * np.exp(1j * phase)
-        denoised_audio = librosa.istft(complex_spectrogram, hop_length=self.hop_length)
-        return denoised_audio
+        return W, H
 
-    def denoise(self, audio_file, output_file):
-        input_spectrogram = self.preprocess_audio(audio_file)
-        denoised_spectrogram = self.denoise_audio(input_spectrogram)
-        phase = np.angle(librosa.stft(librosa.load(audio_file)[0], n_fft=self.n_fft, hop_length=self.hop_length))
-        denoised_audio = self.reconstruct_audio(denoised_spectrogram, phase)
-        librosa.output.write_wav(output_file, denoised_audio, sr=22050)
+    def generalize_noise_types(self, noise_files_list):
+        """
+        Generalize the noise types by computing the average basis matrix for each noise type.
 
-# Usage example
-if __name__ == '__main__':
-    noise_files_1 = ['noise_train/crickets_1.wav', 'noise_train/crickets_2.wav', 'noise_train/crickets_3.wav', 'noise_train/crickets_4.wav']
-    noise_files_2 = ['noise_train/wind_1.wav', 'noise_train/wind_2.wav']
-    noise_files_3 = ['noise_train/crickets_speaking.wav']
+        Args:
+            noise_files_list (list): List of lists, where each inner list contains noise file paths for a specific noise type.
 
-    audio_file = '../working_data/d303sA1r01p0120210823.wav'
-    output_file = 'results/denoised_audio.wav'
-    
-    denoiser = AudioDenoiser(noise_files=[noise_files_1, noise_files_2, noise_files_3], n_components=10)
-    denoiser.train()
-    denoiser.denoise(audio_file, output_file)
+        Returns:
+            list: List of generalized noise type matrices.
+        """
+        self.noise_files_list = noise_files_list
+        self.noise_type_matrices = []
 
+        for noise_files in noise_files_list:
+            noise_type_basis_matrices = []
+
+            for noise_file in noise_files:
+                W, _ = self.compute_basis_matrix(noise_file)
+                noise_type_basis_matrices.append(W)
+
+            noise_type_matrix = np.mean(noise_type_basis_matrices, axis=0)
+            self.noise_type_matrices.append(noise_type_matrix)
+
+        return self.noise_type_matrices
+
+
+# Example Usage
+
+noise_files_1 = ['noise_train/crickets_1.wav', 'noise_train/crickets_2.wav', 'noise_train/crickets_3.wav', 'noise_train/crickets_4.wav']
+noise_files_2 = ['noise_train/wind_1.wav', 'noise_train/wind_2.wav']
+noise_files_3 = ['noise_train/crickets_speaking.wav']
+
+denoiser = AudioDenoiser()
+noise_type_matrices = denoiser.generalize_noise_types([noise_files_1, noise_files_2, noise_files_3])
+
+print(noise_type_matrices)
