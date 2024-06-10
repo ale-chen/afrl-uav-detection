@@ -44,7 +44,7 @@ class AudioDenoiser:
             tuple: A tuple containing the basis matrix (W) and the activation matrix (H).
         """
         y, sr = librosa.load(audio_file)
-        S = librosa.stft(y, n_fft=self.n_fft, hop_length=self.hop_length)
+        S = librosa.stft(y, n_fft=self.n_fft, hop_length=self.hop_length) # This single line can be changed for omd if we would like.
         S_mag, _ = librosa.magphase(S)
 
         nmf = NMF(n_components=self.n_components, max_iter = max_iter, random_state=0)
