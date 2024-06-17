@@ -45,7 +45,7 @@ The last approach I will mention for now is this one which utilizes librosa deco
 
 **Griff**: gaussian distribution for volume data augmentation: (decide whether or not 'no drone' is a class): cut up into 5 second chunks, drop or gather into separate any snippets without drone noises.
 
-**Alec**: NMF selection stuff
+**Alec**: NMF hyperparameter selection. Looking at alternative matrix representations of audio data to run through NMF denoising.
 
 ## Clustering
 
