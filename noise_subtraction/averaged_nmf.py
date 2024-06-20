@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.decomposition import NMF
 # from sklearn.metrics  import mean_squared_error
 import os
+from multiprocessing import Pool
 
 
 class CustomNMF(NMF):
@@ -50,7 +51,7 @@ class CustomNMF(NMF):
 
         Returns:
             tuple: (W, H), where W is the basis matrix, and H is the activation matrix.
-        """
+        """ 
         if self.fixed_components is not None:
             W_fixed = self.fixed_components
             n_fixed_components = W_fixed.shape[1]
@@ -286,7 +287,29 @@ class AudioDenoiser:
         sf.write(denoised_file, denoised_audio, samplerate=sr, subtype='PCM_24')
 
         return signal_basis_vectors, signal_activations, denoised_file
+    
+    def denoise_audio_parallel(self, audio_files, n_signal_components=2, max_iter=2048, n_processes=None):
+        """
+        Denoise multiple audio files in parallel using Non-Negative Matrix Factorization (NMF) with fixed noise basis vectors.
 
+        Args:
+            audio_files (list): List of paths to the audio files to be denoised.
+            n_signal_components (int, optional): Number of signal components to be used in the NMF decomposition.
+                Defaults to 2.
+            max_iter (int, optional): Maximum number of iterations for NMF. Defaults to 1200.
+            n_processes (int, optional): Number of processes to use for parallel processing. If None, it uses the number of CPUs available.
+
+        Returns:
+            list: A list of tuples, where each tuple contains the following:
+                - signal_basis_vectors (numpy.ndarray): The basis vectors representing the signal components.
+                - signal_activations (numpy.ndarray): The activation matrix for the signal components.
+                - denoised_file (str): Path to the denoised audio file.
+        """
+        with Pool(processes=n_processes) as pool:
+            results = pool.starmap(self.denoise_audio, [(audio_file, n_signal_components, max_iter) for audio_file in audio_files])
+
+        return results
+    
 
 # Example Usage
 def example():
@@ -301,14 +324,15 @@ def example():
     denoiser = AudioDenoiser(n_components=8, hop_length=768, load_noise_type_matrices=False)
     noise_type_matrices = denoiser.generalize_noise_types([noise_files_1, noise_files_2, noise_files_3])
 
-    # print(noise_type_matrices)
+    # Denoise multiple signal+noise .wav files in parallel
+    signal_noise_files = ['../working_data/d302sA1r01p0120210823.wav', '../working_data/d303sA1r01p0120210823.wav']
+    denoised_results = denoiser.denoise_audio_parallel(signal_noise_files, n_signal_components=8)
 
-    # Denoise a signal+noise .wav file
-    signal_noise_file = "../working_data/d303sA1r01p0120210823.wav"
-    denoised_basis, denoised_activations, denoised_file = denoiser.denoise_audio(signal_noise_file, n_signal_components=8)
-    print("Denoised basis matrix shape:", denoised_basis.shape)
-    print("Denoised activation matrix shape:", denoised_activations.shape)
-    print("Denoised audio file:", denoised_file)
+    for result in denoised_results:
+        denoised_basis, denoised_activations, denoised_file = result
+        print("Denoised basis matrix shape:", denoised_basis.shape)
+        print("Denoised activation matrix shape:", denoised_activations.shape)
+        print("Denoised audio file:", denoised_file)
 
 
 # Finding the best hyperparameter values (n_components, n_fft, hop_length, n_signal_components, max_iter)
