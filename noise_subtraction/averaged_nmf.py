@@ -313,11 +313,11 @@ class AudioDenoiser:
 
 # Example Usage
 def example():
-    # noise_files_1 = []
-    # cricket_path = "./noise_train/crickets"
-    # for path in os.listdir(cricket_path):
-    #             noise_files_1.append(cricket_path + '/' + path)
-    noise_files_1 = ['noise_train_old/crickets_1.wav', 'noise_train_old/crickets_2.wav', 'noise_train_old/crickets_3.wav', 'noise_train_old/crickets_4.wav']
+    noise_files_1 = []
+    cricket_path = "./noise_train/crickets"
+    for path in os.listdir(cricket_path):
+                noise_files_1.append(cricket_path + '/' + path)
+    # noise_files_1 = ['noise_train_old/crickets_1.wav', 'noise_train_old/crickets_2.wav', 'noise_train_old/crickets_3.wav', 'noise_train_old/crickets_4.wav']
     noise_files_2 = ['noise_train_old/wind_1.wav', 'noise_train_old/wind_2.wav']
     noise_files_3 = ['noise_train_old/crickets_speaking.wav']
 
