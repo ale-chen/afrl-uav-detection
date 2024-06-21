@@ -2,6 +2,7 @@ import librosa
 import soundfile as sf
 import numpy as np
 from sklearn.decomposition import NMF
+# from sklearn.metrics  import mean_squared_error
 import os
 from multiprocessing import Pool
 
@@ -30,7 +31,7 @@ class CustomNMF(NMF):
     """
 
     def __init__(self, n_components=None, *, init=None, solver='cd', beta_loss='frobenius',
-                 tol=1e-4, max_iter=200, random_state=None, alpha_W=0., alpha_H=0.,
+                 tol=1e-4, max_iter=2048, random_state=None, alpha_W=0., alpha_H=0.,
                  l1_ratio=0., verbose=0, shuffle=False, fixed_components=None):
         super().__init__(
             n_components=n_components, init=init, solver=solver, beta_loss=beta_loss,
@@ -64,12 +65,16 @@ class CustomNMF(NMF):
             H = np.random.rand(self.n_components, X.shape[1])
 
             # Optimize the signal components in W and the entire H matrix
-            for _ in range(self.max_iter):
+            for i in range(self.max_iter):
                 # Update H
                 H = self._update_H(X, W, H)
 
                 # Update the signal components in W
                 W[:, n_fixed_components:] = self._update_W(X, W, H)[:, n_fixed_components:]
+
+                # Track fit progress with Euclidean norm
+                # if i % 100 == 0:
+                #     print(f"Index {i}:\n {mean_squared_error(X, W @ H)}")
 
             self.components_ = H
         else:
@@ -112,6 +117,7 @@ class CustomNMF(NMF):
         W *= numerator / denominator
         return W
 
+
 class AudioDenoiser:
     """
     A class for audio denoising using Non-Negative Matrix Factorization (NMF).
@@ -124,7 +130,7 @@ class AudioDenoiser:
         noise_type_matrices (list): List of generalized noise type matrices.
     """
 
-    def __init__(self, n_components=10, n_fft=1024, hop_length=512):
+    def __init__(self, n_components=10, n_fft=1024, hop_length=768,  load_noise_type_matrices=False):
         """
         Initialize the AudioDenoiser.
 
@@ -132,14 +138,18 @@ class AudioDenoiser:
             n_components (int, optional): Number of components for NMF decomposition. Defaults to 10.
             n_fft (int, optional): FFT window size. Defaults to 1024.
             hop_length (int, optional): Hop length for STFT. Defaults to 512.
+            load_noist_type_matrices (bool, optional): Flag to load the generalized noise type matrices from memory.
         """
         self.n_components = n_components
         self.n_fft = n_fft
         self.hop_length = hop_length
+        self.load = load_noise_type_matrices
+
+        self.matrix_directory = "./noise_type_matrices"
         self.noise_files_list = []
         self.noise_type_matrices = []
 
-    def compute_basis_matrix(self, audio_file, max_iter = 1200):
+    def compute_basis_matrix(self, audio_file, max_iter = 2048):
         """
         Compute the basis and activation matrices for an audio file using NMF.
 
@@ -171,6 +181,10 @@ class AudioDenoiser:
         Returns:
             list: List of generalized noise type matrices.
         """
+
+        if self.load:
+            return self.load_noise_type_matrices(self.matrix_directory)
+        
         self.noise_files_list = noise_files_list
         self.noise_type_matrices = []
 
@@ -183,6 +197,10 @@ class AudioDenoiser:
 
             noise_type_matrix = np.mean(noise_type_basis_matrices, axis=0)
             self.noise_type_matrices.append(noise_type_matrix)
+
+        # Save noise type matrices
+        if not self.load:
+            self.save_noise_type_matrices(self.matrix_directory)
 
         return self.noise_type_matrices
     
@@ -200,7 +218,22 @@ class AudioDenoiser:
             output_path = os.path.join(output_dir, f"noise_type_{i+1}.npy")
             np.save(output_path, noise_type_matrix)
 
-    def denoise_audio(self, audio_file, n_signal_components=2, max_iter=1200):
+    def load_noise_type_matrices(self, input_dir):
+        """
+        Load the generalized noise type matrices from the specified input directory.
+
+        Args:
+            input_dir (str): Directory to load the generalized noise type matrices.
+        """
+        if not os.path.exists(input_dir):
+            raise Exception(f"Directory {input_dir} does not exist.")
+        
+        for path in os.listdir(input_dir):
+            location = input_dir + '/' + path
+            if os.path.isfile(location):
+                self.noise_type_matrices.append(np.load(location))
+
+    def denoise_audio(self, audio_file, n_signal_components=2, max_iter=2048):
         """
         Denoise an audio file using Non-Negative Matrix Factorization (NMF) with fixed noise basis vectors.
 
@@ -252,7 +285,7 @@ class AudioDenoiser:
 
         return signal_basis_vectors, signal_activations, denoised_file
     
-    def denoise_audio_parallel(self, audio_files, n_signal_components=2, max_iter=1200, n_processes=None):
+    def denoise_audio_parallel(self, audio_files, n_signal_components=2, max_iter=2048, n_processes=None):
         """
         Denoise multiple audio files in parallel using Non-Negative Matrix Factorization (NMF) with fixed noise basis vectors.
 
@@ -273,23 +306,68 @@ class AudioDenoiser:
             results = pool.starmap(self.denoise_audio, [(audio_file, n_signal_components, max_iter) for audio_file in audio_files])
 
         return results
+    
+
 # Example Usage
+def example():
+    noise_files_1 = []
+    cricket_path = "./noise_train/crickets"
+    for path in os.listdir(cricket_path):
+                noise_files_1.append(cricket_path + '/' + path)
+    # noise_files_1 = ['noise_train_old/crickets_1.wav', 'noise_train_old/crickets_2.wav', 'noise_train_old/crickets_3.wav', 'noise_train_old/crickets_4.wav']
+    noise_files_2 = ['noise_train_old/wind_1.wav', 'noise_train_old/wind_2.wav']
+    noise_files_3 = ['noise_train_old/crickets_speaking.wav']
 
-if __name__ == '__main__':
-
-    noise_files_1 = ['noise_train/crickets_1.wav', 'noise_train/crickets_2.wav', 'noise_train/crickets_3.wav', 'noise_train/crickets_4.wav']
-    noise_files_2 = ['noise_train/wind_1.wav', 'noise_train/wind_2.wav']
-    noise_files_3 = ['noise_train/crickets_speaking.wav']
-
-    denoiser = AudioDenoiser(hop_length=1024)
-    noise_type_matrices = denoiser.generalize_noise_types([noise_files_1, noise_files_2, noise_files_3])
+    denoiser = AudioDenoiser(n_components=8, hop_length=768, load_noise_type_matrices=False)
+    denoiser.generalize_noise_types([noise_files_1, noise_files_2, noise_files_3])
 
     # Denoise multiple signal+noise .wav files in parallel
     signal_noise_files = ['../working_data/d302sA1r01p0120210823.wav', '../working_data/d303sA1r01p0120210823.wav']
-    denoised_results = denoiser.denoise_audio_parallel(signal_noise_files)
+    denoised_results = denoiser.denoise_audio_parallel(signal_noise_files, n_signal_components=2)
 
     for result in denoised_results:
         denoised_basis, denoised_activations, denoised_file = result
         print("Denoised basis matrix shape:", denoised_basis.shape)
         print("Denoised activation matrix shape:", denoised_activations.shape)
         print("Denoised audio file:", denoised_file)
+
+
+# Finding the best hyperparameter values (n_components, n_fft, hop_length, n_signal_components, max_iter)
+def hyper_parameter_test():
+    n_components = 1024
+    max_iter = 2048
+    hop_length = 768
+    print(f"Components: {n_components}")
+    print(f"Iterations: {max_iter}")
+    print(f"Hop Length: {hop_length}")
+
+    # Load the audio file and compute the magnitude spectrogram
+    y, sr = librosa.load('noise_train/crickets_1.wav')
+    print(f"Sampling Rate:{sr}")
+    S = librosa.stft(y, n_fft=1024, hop_length=hop_length)
+    S_mag, _ = librosa.magphase(S)
+
+    # Perform NMF with fixed noise basis vectors
+    nmf = CustomNMF(n_components=n_components, max_iter=max_iter, random_state=0,
+                    fixed_components=None)
+    W, H = nmf.fit_transform(S_mag, W=None, H=None)
+
+    # Reconstruct the denoised spectrogram
+    denoised_S_mag = np.dot(W, H)
+    denoised_S = denoised_S_mag * np.exp(1j * np.angle(S))
+
+    # Synthesize the denoised audio
+    denoised_audio = librosa.istft(denoised_S, hop_length=hop_length)
+
+    # Save the denoised audio to a file
+    denoised_file = os.path.splitext('noise_train/crickets_1.wav')[0] + "_processed.wav"
+    sf.write(denoised_file, denoised_audio, samplerate=sr, subtype='PCM_24')
+
+    # Denoise a signal+noise .wav file
+    # signal_noise_file = "../working_data/d303sA1r01p0120210823.wav"
+    # denoiser.denoise_audio(signal_noise_file, n_signal_components=2, max_iter=2048)
+
+
+if __name__ ==  "__main__":
+    # hyper_parameter_test()
+    example()
