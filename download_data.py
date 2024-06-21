@@ -118,11 +118,12 @@ def download_wav_files(credentials_file, download_string, base_directory, output
     
     except HttpError as error:
         print(f"An error occurred: {error}")
+if __name__ == '__main__':
+            
+    # Example usage
+    credentials_file = "path/to/your/credentials.json"
+    download_string = "dXXXsA1r01p0120210823.wav"
+    base_directory = "afrl-uav-detection-data/DataStores/Escape_Acoustic_Data/ESII_from_Z/ESCAPE_FORMAT_ONECHANNEL"
+    output_directory = "path/to/output/directory"
 
-# Example usage
-credentials_file = "path/to/your/credentials.json"
-download_string = "dXXXsA1r01p0120210823.wav"
-base_directory = "afrl-uav-detection-data/DataStores/Escape_Acoustic_Data/ESII_from_Z/ESCAPE_FORMAT_ONECHANNEL"
-output_directory = "path/to/output/directory"
-
-download_wav_files(credentials_file, download_string, base_directory, output_directory)
+    download_wav_files(credentials_file, download_string, base_directory, output_directory)
