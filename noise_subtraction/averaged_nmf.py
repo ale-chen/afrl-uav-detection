@@ -31,7 +31,7 @@ class CustomNMF(NMF):
     """
 
     def __init__(self, n_components=None, *, init=None, solver='cd', beta_loss='frobenius',
-                 tol=1e-4, max_iter=1024, random_state=None, alpha_W=0., alpha_H=0.,
+                 tol=1e-4, max_iter=2048, random_state=None, alpha_W=0., alpha_H=0.,
                  l1_ratio=0., verbose=0, shuffle=False, fixed_components=None):
         super().__init__(
             n_components=n_components, init=init, solver=solver, beta_loss=beta_loss,
