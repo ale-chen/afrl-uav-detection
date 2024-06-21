@@ -143,7 +143,7 @@ class AudioDenoiser:
         self.n_components = n_components
         self.n_fft = n_fft
         self.hop_length = hop_length
-        self.load_noise_type_matrices = load_noise_type_matrices
+        self.load = load_noise_type_matrices
 
         self.matrix_directory = "./noise_type_matrices"
         self.noise_files_list = []
@@ -182,7 +182,7 @@ class AudioDenoiser:
             list: List of generalized noise type matrices.
         """
 
-        if self.load_noise_type_matrices:
+        if self.load:
             return self.load_noise_type_matrices(self.matrix_directory)
         
         self.noise_files_list = noise_files_list
@@ -199,7 +199,7 @@ class AudioDenoiser:
             self.noise_type_matrices.append(noise_type_matrix)
 
         # Save noise type matrices
-        if not self.load_noise_type_matrices:
+        if not self.load:
             self.save_noise_type_matrices(self.matrix_directory)
 
         return self.noise_type_matrices
@@ -228,13 +228,10 @@ class AudioDenoiser:
         if not os.path.exists(input_dir):
             raise Exception(f"Directory {input_dir} does not exist.")
         
-        noise_type_matrices = []
-
         for path in os.listdir(input_dir):
-            if os.is_file(path):
-                noise_type_matrices.append(np.load(path))
-
-        return noise_type_matrices
+            location = input_dir + '/' + path
+            if os.path.isfile(location):
+                self.noise_type_matrices.append(np.load(location))
 
     def denoise_audio(self, audio_file, n_signal_components=2, max_iter=2048):
         """
@@ -322,11 +319,11 @@ def example():
     noise_files_3 = ['noise_train_old/crickets_speaking.wav']
 
     denoiser = AudioDenoiser(n_components=8, hop_length=768, load_noise_type_matrices=False)
-    noise_type_matrices = denoiser.generalize_noise_types([noise_files_1, noise_files_2, noise_files_3])
+    denoiser.generalize_noise_types([noise_files_1, noise_files_2, noise_files_3])
 
     # Denoise multiple signal+noise .wav files in parallel
     signal_noise_files = ['../working_data/d302sA1r01p0120210823.wav', '../working_data/d303sA1r01p0120210823.wav']
-    denoised_results = denoiser.denoise_audio_parallel(signal_noise_files, n_signal_components=8)
+    denoised_results = denoiser.denoise_audio_parallel(signal_noise_files, n_signal_components=2)
 
     for result in denoised_results:
         denoised_basis, denoised_activations, denoised_file = result
