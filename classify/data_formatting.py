@@ -4,6 +4,62 @@ import librosa
 import soundfile as sf
 import pandas as pd
 from tqdm.notebook import tqdm as tqdm
+import numpy as np
+
+def get_drone_type(filename):
+    drone_types = {
+        'Inspired': 0,
+        'Matrice-': 1,
+        '-Phantom': 2,
+        'Matrice+Phantom': 3
+    }
+    for key in drone_types:
+        if key in filename:
+            return drone_types[key]
+    return None
+
+def split_wav_file(input_file, output_dir, chunk_duration=0.25):
+    # Crashes out randomly *sometimes*
+    y, sr = librosa.load(input_file, sr=None)
+    duration = librosa.get_duration(y=y, sr=sr)
+    num_chunks = int(duration // chunk_duration)
+    
+    output_filenames = []
+    output_labels = []
+    
+    for i in range(num_chunks):
+        start = int(i * chunk_duration * sr)
+        end = int((i + 1) * chunk_duration * sr)
+        chunk = y[start:end]
+        
+        if len(chunk) < chunk_duration * sr:
+            padding = np.zeros(int(chunk_duration * sr) - len(chunk))
+            chunk = np.concatenate((chunk, padding))
+        
+        input_filename = os.path.basename(input_file)
+        output_filename = f"{os.path.splitext(input_filename)[0]}_{i+1}.wav"
+        output_path = os.path.join(output_dir, output_filename)
+        sf.write(output_path, chunk, sr)
+        
+        output_filenames.append(output_filename)
+        output_labels.append(get_drone_type(input_filename))
+    
+    return output_filenames, output_labels
+
+def process_files(input_excel, source_dir, output_dir, output_excel):
+    df = pd.read_excel(input_excel)
+    
+    all_output_filenames = []
+    all_output_labels = []
+    
+    for filename in tqdm(df.iloc[:, 0], desc="Processing files", unit="file"):
+        input_file = os.path.join(source_dir, filename)
+        output_filenames, output_labels = split_wav_file(input_file, output_dir)
+        all_output_filenames.extend(output_filenames)
+        all_output_labels.extend(output_labels)
+    
+    output_df = pd.DataFrame({'Filename': all_output_filenames, 'Label': all_output_labels})
+    output_df.to_excel(output_excel, index=False)
 
 def calculate_hpss_ratios(directory, output_directory):
     """
@@ -39,6 +95,52 @@ def calculate_hpss_ratios(directory, output_directory):
         writer.writerows(results)
     
     print("HPSS ratios saved to hpss_ratios.csv")
+
+def select_data_by_hpss_ratio(directory):
+    """
+    Generate a new csv based on the harmonic vs percussive ratio of each .wav file in a directory.
+
+    Args:
+        directory (str): Directory path containing the csv file.
+
+    Returns:
+        None
+    """
+    wav_files = []
+    cutoff = 1.25
+
+    with open(os.path.join(directory,'hpss_ratios.csv'), 'r') as csvfile:
+        csv_reader = csv.reader(csvfile, delimiter=',')
+        next(csv_reader)
+        wav_files += [[row[0],' ',' '] for row in csv_reader if float(row[1]) >= cutoff]
+
+    df_labels = pd.read_excel("E:\\UAV_DISTASIO_DATA\\y\\UAV_chunk_labels.xlsx", header=None, names=["filename", "type", "motion"])
+    df_labels["identifier"] = df_labels["filename"].str.extract(r"(sA\d+r\d+)")
+    
+    df_entries = pd.DataFrame(columns=["filename", "type", "motion"])
+    
+    for wav_file in wav_files:
+        identifier = wav_file[0].split("-")[0]
+        
+        try:
+            label_row = df_labels[df_labels["identifier"] == identifier].iloc[0]
+            
+            entry_df = pd.DataFrame({
+                "filename": [wav_file[0]],
+                "type": [label_row["type"]],
+                "motion": [label_row["motion"]]
+            })
+            
+            df_entries = pd.concat([df_entries, entry_df], ignore_index=True)
+            
+        except IndexError:
+            print(f"No corresponding label found for file: {wav_file[0]}")
+            continue
+    
+    output_spreadsheet = "E:\\UAV_DISTASIO_DATA\\y\\UAV_chunk_labels_reduced.xlsx"
+    df_entries.to_excel(output_spreadsheet, index=False)
+    
+    print(f"New label file of sound chunks with hpss ratio greater than {cutoff}")
 
 def generate_labels_spreadsheet(wav_directory, label_spreadsheet):
     """
@@ -112,3 +214,18 @@ def trim_or_pad_audio_files(wav_directory, max_duration_sec):
                 tqdm.write(f"Error loading audio file: {file_path}. Error message: {str(e)}")
         else:
             tqdm.write(f"File not found: {file_path}")
+
+
+
+
+
+
+
+
+
+if __name__ == '__main__':
+    # Example usage
+    input_excel = 'input_filenames.xlsx'
+    source_dir = 'path/to/source/directory'
+    output_dir = 'path/to/output/directory'
+    output_excel = 'output_mapping.xlsx'
