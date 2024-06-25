@@ -3,7 +3,7 @@ import csv
 import librosa
 import soundfile as sf
 import pandas as pd
-from tqdm.notebook import tqdm as tqdm_notebook
+from tqdm.notebook import tqdm as tqdm
 
 def calculate_hpss_ratios(directory, output_directory):
     """
@@ -16,11 +16,11 @@ def calculate_hpss_ratios(directory, output_directory):
     Returns:
         None
     """
-    wav_files = [file for file in tqdm_notebook(os.listdir(directory), desc="Indexing Files") if file.endswith('.wav')]
+    wav_files = [file for file in tqdm(os.listdir(directory), desc="Indexing Files") if file.endswith('.wav')]
     
     results = []
     
-    for file in tqdm_notebook(wav_files, desc="Processing files"):
+    for file in tqdm(wav_files, desc="Processing files"):
         file_path = os.path.join(directory, file)
         y, sr = librosa.load(file_path)
         
@@ -33,7 +33,7 @@ def calculate_hpss_ratios(directory, output_directory):
         
         results.append([file, ratio])
     
-    with open(os.join(output_directory,'hpss_ratios.csv'), 'w', newline='') as csvfile:
+    with open(os.path.join(output_directory,'hpss_ratios.csv'), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Filename', 'Harmonic/Percussive Ratio'])
         writer.writerows(results)
