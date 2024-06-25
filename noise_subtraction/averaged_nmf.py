@@ -252,7 +252,8 @@ class AudioDenoiser:
         # Load the audio file and compute the magnitude spectrogram
         y, sr = librosa.load(audio_file)
         S = librosa.stft(y, n_fft=self.n_fft, hop_length=self.hop_length)
-        S_mag, _ = librosa.magphase(S)
+        H, _ = librosa.decompose.hpss(S, margin=2)
+        S_mag, _ = librosa.magphase(H)
 
         # Stack the generalized noise type matrices horizontally
         noise_basis_matrix = np.hstack(self.noise_type_matrices)
@@ -306,7 +307,7 @@ class AudioDenoiser:
             results = pool.starmap(self.denoise_audio, [(audio_file, n_signal_components, max_iter) for audio_file in audio_files])
 
         return results
-    
+
 
 # Example Usage
 def example():
@@ -315,15 +316,17 @@ def example():
     for path in os.listdir(cricket_path):
                 noise_files_1.append(cricket_path + '/' + path)
     # noise_files_1 = ['noise_train_old/crickets_1.wav', 'noise_train_old/crickets_2.wav', 'noise_train_old/crickets_3.wav', 'noise_train_old/crickets_4.wav']
-    noise_files_2 = ['noise_train_old/wind_1.wav', 'noise_train_old/wind_2.wav']
-    noise_files_3 = ['noise_train_old/crickets_speaking.wav']
+    noise_files_2 = ['noise_train/wind_1.wav', 'noise_train/wind_2.wav']
+    noise_files_3 = ['noise_train/crickets_speaking.wav']
 
-    denoiser = AudioDenoiser(n_components=8, hop_length=768, load_noise_type_matrices=False)
+    denoiser = AudioDenoiser(n_components=512, hop_length=768, load_noise_type_matrices=True)
     denoiser.generalize_noise_types([noise_files_1, noise_files_2, noise_files_3])
+
+    print("Obtained generalizing matrices")
 
     # Denoise multiple signal+noise .wav files in parallel
     signal_noise_files = ['../working_data/d302sA1r01p0120210823.wav', '../working_data/d303sA1r01p0120210823.wav']
-    denoised_results = denoiser.denoise_audio_parallel(signal_noise_files, n_signal_components=2)
+    denoised_results = denoiser.denoise_audio_parallel(signal_noise_files, n_signal_components=32)
 
     for result in denoised_results:
         denoised_basis, denoised_activations, denoised_file = result
@@ -342,7 +345,7 @@ def hyper_parameter_test():
     print(f"Hop Length: {hop_length}")
 
     # Load the audio file and compute the magnitude spectrogram
-    y, sr = librosa.load('noise_train/crickets_1.wav')
+    y, sr = librosa.load('noise_train_old/crickets_1.wav')
     print(f"Sampling Rate:{sr}")
     S = librosa.stft(y, n_fft=1024, hop_length=hop_length)
     S_mag, _ = librosa.magphase(S)
@@ -368,6 +371,20 @@ def hyper_parameter_test():
     # denoiser.denoise_audio(signal_noise_file, n_signal_components=2, max_iter=2048)
 
 
+def hpss_test():
+    num_margin = 4
+    y, sr = librosa.load('../working_data/d303sA1r01p0120210823.wav')
+    S = librosa.stft(y, n_fft=1024, hop_length=768)
+    H, P = librosa.decompose.hpss(S, margin=num_margin)
+    harmonic_audio = librosa.istft(H, hop_length=768)
+    percussive_audio = librosa.istft(P, hop_length=768)
+    harmonic_path = f"../working_data/d303sA1r01p0120210823_harmonic_{num_margin}.wav"
+    percussive_path = f"../working_data/d303sA1r01p0120210823_percussive_{num_margin}.wav"
+    sf.write(harmonic_path, harmonic_audio, samplerate=sr, subtype='PCM_24')
+    sf.write(percussive_path, percussive_audio, samplerate=sr, subtype='PCM_24')
+
+
 if __name__ ==  "__main__":
     # hyper_parameter_test()
     example()
+    # hpss_test()
