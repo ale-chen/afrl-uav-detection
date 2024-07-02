@@ -14,6 +14,12 @@ from glob import glob
 from scipy.io import wavfile
 
 
+# In[1]:
+
+
+get_ipython().system('jupyter nbconvert --to script segmentAudio.ipynb')
+
+
 # In[2]:
 
 
@@ -37,6 +43,52 @@ def segment_audio(input_file, output_dir, chunk_duration=5, sr=None):
         #write the chunk out
         wavfile.write(f"{output_dir}/chunk_{i + 1}.wav", sr, chunk)
         print(f"Saved {output_dir}/chunk_{i + 1}.wav")
+
+
+# In[ ]:
+
+
+import os
+import librosa
+import numpy as np
+import soundfile as sf
+from scipy.signal import wiener
+
+def segment_audio_walk(input_file, output_dir, segment_duration=.25):
+    """Segment the audio file, apply Wiener filtering to each segment, and save the segments."""
+    y, sr = librosa.load(input_file, sr=None)
+
+    # Calculate the number of samples per segment
+    segment_samples = int(segment_duration * sr)
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Process each segment
+    for i in range(0, len(y), segment_samples):
+        segment = y[i:i + segment_samples]
+
+        segment_filename = os.path.join(output_dir, f'segment_{i // segment_samples:04d}.wav')
+
+        sf.write(segment_filename, segment, sr)
+
+def process_directory(root_dir):
+    """Walk through the root directory and process each .wav file found."""
+    for dirpath, _, filenames in os.walk(root_dir):
+        for filename in filenames:
+            if filename.endswith('.wav'):
+                input_file = os.path.join(dirpath, filename)
+                output_dir = os.path.join(dirpath, filename[:-4])
+
+                # Segment and filter the audio file
+                segment_audio_walk(input_file, output_dir)
+
+# Root directory containing subdirectories with .wav files
+root_dir = 'path_to_root_directory'
+
+# Process the directory
+process_directory(root_dir)
+
+print(f"Processing complete.")
 
 
 # In[3]:
