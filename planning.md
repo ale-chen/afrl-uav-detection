@@ -49,10 +49,8 @@ The last approach I will mention for now is this one which utilizes librosa deco
 
 **Nick**: NMF hyperparameter selection and debugging.
 
-## Clustering
-
-**Plan:**
-
 ## Classical/ML Classification: The Meat of the project
 
-Classical: Dynamic Mode Decomposition (to be developed further)
+**Alec**: Dynamic Mode Decomposition (to be developed further)
+
+**Griff & Nick**: Constructing a better classifcation model by developing more effective data cleaning and feature extraction techniques.
