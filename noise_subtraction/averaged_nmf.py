@@ -5,6 +5,7 @@ from sklearn.decomposition import NMF
 # from sklearn.metrics  import mean_squared_error
 import os
 from multiprocessing import Pool
+from tqdm import tqdm
 
 
 class CustomNMF(NMF):
@@ -252,7 +253,7 @@ class AudioDenoiser:
         # Load the audio file and compute the magnitude spectrogram
         y, sr = librosa.load(audio_file)
         S = librosa.stft(y, n_fft=self.n_fft, hop_length=self.hop_length)
-        H, _ = librosa.decompose.hpss(S, margin=2)
+        H, _ = librosa.decompose.hpss(S, margin=1)
         S_mag, _ = librosa.magphase(H)
 
         # Stack the generalized noise type matrices horizontally
@@ -281,10 +282,10 @@ class AudioDenoiser:
         denoised_audio = librosa.istft(denoised_S, hop_length=self.hop_length)
 
         # Save the denoised audio to a file
-        denoised_file = os.path.splitext(audio_file)[0] + "_denoised.wav"
-        sf.write(denoised_file, denoised_audio, samplerate=sr, subtype='PCM_24')
+        # denoised_file = os.path.splitext(audio_file)[0] + "_denoised.wav"
+        # sf.write(denoised_file, denoised_audio, samplerate=sr, subtype='PCM_24')
 
-        return signal_basis_vectors, signal_activations, denoised_file
+        return signal_basis_vectors, signal_activations, denoised_audio
     
     def denoise_audio_parallel(self, audio_files, n_signal_components=2, max_iter=2048, n_processes=None):
         """
@@ -307,6 +308,30 @@ class AudioDenoiser:
             results = pool.starmap(self.denoise_audio, [(audio_file, n_signal_components, max_iter) for audio_file in audio_files])
 
         return results
+    
+
+# Usage for data cleaning pre-processing for classifiers.
+def denoise_directory(NOISE_DIRECTORY, SIGNAL_DIRECTORY, CLEAN_DIRECTORY):
+    # NOISE_DIRECTORY must have the format:
+    #   Directory for noise types
+    #       Sub Directory for noise type
+    #           noise type sound files
+    noise_types = []
+    for dir in os.listdir(NOISE_DIRECTORY):
+        noise_type_directory = os.path.join(NOISE_DIRECTORY, dir)
+        noise_types.append([os.path.join(noise_type_directory, path) for path in os.listdir(noise_type_directory)])
+
+    print("Generalizing background noise examples")
+
+    denoiser = AudioDenoiser(n_components=512, hop_length=768, load_noise_type_matrices=False)
+    denoiser.generalize_noise_types(noise_types)
+
+    print("Calculating denoised samples")
+
+    for signal in tqdm(os.listdir(SIGNAL_DIRECTORY)):
+        _, _, cleaned_signal = denoiser.denoise_audio(os.path.join(SIGNAL_DIRECTORY, signal), n_signal_components=2, max_iter=512)
+        file_path = os.path.join(CLEAN_DIRECTORY, signal)
+        sf.write(file_path, cleaned_signal, samplerate=22050, subtype="PCM_24")
 
 
 # Example Usage
@@ -326,7 +351,7 @@ def example():
 
     # Denoise multiple signal+noise .wav files in parallel
     signal_noise_files = ['../working_data/d302sA1r01p0120210823.wav', '../working_data/d303sA1r01p0120210823.wav']
-    denoised_results = denoiser.denoise_audio_parallel(signal_noise_files, n_signal_components=32)
+    denoised_results = denoiser.denoise_audio_parallel(signal_noise_files, n_signal_components=8)
 
     for result in denoised_results:
         denoised_basis, denoised_activations, denoised_file = result
@@ -385,6 +410,9 @@ def hpss_test():
 
 
 if __name__ ==  "__main__":
+    # example()
     # hyper_parameter_test()
-    example()
     # hpss_test()
+    denoise_directory("/home/nirad/Documents/AFRL/SUAS-detection/noise_types",
+                      "/home/nirad/Documents/AFRL/SUAS-detection/DADSTest",
+                      "/home/nirad/Documents/AFRL/SUAS-detection/DADSTestClean")
