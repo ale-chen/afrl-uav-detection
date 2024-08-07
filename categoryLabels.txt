@@ -1,0 +1,8 @@
+1: Inspired flight 1200(1)
+2: DJI Matrice 800(2)
+3: DJI Phantom 4 Pro(3)
+4: DJI Mavic Pro(4)
+5: Phantom + Matrice (2 + 3)
+6: Phantom + Mavic ( 3 + 4) 
+7: Inspired + Matrice (1 + 2)
+8: All four flying 
