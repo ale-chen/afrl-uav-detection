@@ -42,7 +42,7 @@ def compute_spectrograms(csv_file, audio_dir, output_dir):
     
     for filename in tqdm(df.iloc[:, 0], desc="Processing files", unit="file", colour="red"):
         # audio_path = os.path.join(audio_dir, filename)
-        s_string = filename.split("\\")
+        s_string = filename.split("/")
         spectrogram_filename = f"{s_string[-1][:-4]}_spectrogram.pt"
         output_path = os.path.join(output_dir, spectrogram_filename)
 
@@ -66,8 +66,8 @@ def compute_spectrograms(csv_file, audio_dir, output_dir):
 
     
 def main():
-
-    master_csv = "complete_dataset.csv"
+    data_path = "/home/distasiom/Documents/Summer2024/data"
+    master_csv = os.path.join(data_path, "ESCAPEII_DADS_only.csv")
     master_df = pd.read_csv(master_csv)
 
     files = master_df['Filename']
@@ -86,14 +86,14 @@ def main():
         # 'Label': labels
     })
 
-    full_paths = [os.path.join(dir, file) for file in files]
+    # full_paths = [os.path.join(dir, file) for file in files]
 
     features = normalize_and_get_feats(files)
     features_df = pd.DataFrame(features)
 
     res = pd.concat([master_df, features_df], axis=1)
 
-    output_csv = './complete_dataset_features.csv'
+    output_csv = '/home/distasiom/Documents/Summer2024/data/ESCAPEII_DADS_only_features.csv'
 
     # Write DataFrame to Excel
     res.to_csv(output_csv, index=False)
@@ -101,8 +101,8 @@ def main():
 
     csv_file = output_csv
     audio_dir = ""
-    output_dir = 'C:\\Users/Alec/Desktop/dndMLApproach/complete_dataset_spectrograms'
-    
+    output_dir = '/home/distasiom/Documents/Summer2024/data/ESCAPEII_DADS_only_spectrograms'
+
     compute_spectrograms(csv_file, audio_dir, output_dir)
 
 if __name__ == "__main__":
